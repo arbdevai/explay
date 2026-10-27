@@ -88,6 +88,9 @@ class AudioEngineManager(private val context: Context) {
             initializeEffects(sessionId)
             applyProfile(currentProfile)
         }
+        try {
+            com.explay.audio.audio.visualizer.RealTimeAudioVisualizer.getInstance(context).start(sessionId)
+        } catch (_: Exception) {}
     }
 
     fun onSessionClosed(sessionId: Int) {
@@ -99,6 +102,9 @@ class AudioEngineManager(private val context: Context) {
                 initializeEffects(0)
                 applyProfile(currentProfile)
             }
+            try {
+                com.explay.audio.audio.visualizer.RealTimeAudioVisualizer.getInstance(context).start(0)
+            } catch (_: Exception) {}
         }
     }
 
