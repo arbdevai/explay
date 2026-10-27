@@ -29,6 +29,11 @@ class AudioPreferencesRepository(private val context: Context) {
         val CUSTOM_PROFILES_JSON = stringPreferencesKey("custom_profiles_json")
         val FORCE_SPEAKER = booleanPreferencesKey("force_speaker")
         val FORCE_BLUETOOTH = booleanPreferencesKey("force_bluetooth")
+        val AUTO_MASTER_ENABLED = booleanPreferencesKey("auto_master_enabled")
+    }
+
+    val isAutoMasterEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[PrefKeys.AUTO_MASTER_ENABLED] ?: false
     }
 
     val isEngineEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -84,6 +89,12 @@ class AudioPreferencesRepository(private val context: Context) {
     suspend fun setForceBluetooth(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[PrefKeys.FORCE_BLUETOOTH] = enabled
+        }
+    }
+
+    suspend fun setAutoMasterEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[PrefKeys.AUTO_MASTER_ENABLED] = enabled
         }
     }
 

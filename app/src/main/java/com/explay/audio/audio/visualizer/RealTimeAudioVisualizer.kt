@@ -14,13 +14,15 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
 
 data class VisualizerFrame(
     val magnitudes: FloatArray = FloatArray(24) { 0f },
     val peaks: FloatArray = FloatArray(24) { 0f },
-    val hasAudioSignal: Boolean = false
+    val hasAudioSignal: Boolean = false,
+    val rmsLevelDb: Float = -40f
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -29,6 +31,7 @@ data class VisualizerFrame(
         if (!magnitudes.contentEquals(other.magnitudes)) return false
         if (!peaks.contentEquals(other.peaks)) return false
         if (hasAudioSignal != other.hasAudioSignal) return false
+        if (rmsLevelDb != other.rmsLevelDb) return false
         return true
     }
 
@@ -36,6 +39,7 @@ data class VisualizerFrame(
         var result = magnitudes.contentHashCode()
         result = 31 * result + peaks.contentHashCode()
         result = 31 * result + hasAudioSignal.hashCode()
+        result = 31 * result + rmsLevelDb.hashCode()
         return result
     }
 }
@@ -55,9 +59,10 @@ class RealTimeAudioVisualizer(private val context: Context) {
 
     private var activeSessionId: Int = 0
     private var isAudioStreaming: Boolean = false
+    private var currentRmsDb: Float = -40f
+    var sensitivityFactor: Float = 1.0f
 
-    // Tabel Pemetaan Logaritmik 24-Band (FFT Size 512, 256 Complex Bins, Fs 48kHz)
-    // Memetakan frekuensi 30Hz s/d 20.000Hz secara presisi ke bin FFT masing-masing
+    // Pemetaan Logaritmik 24-Band Presisi (FFT 512, 256 Complex Bins, Fs 48kHz)
     private val bandBinRanges = arrayOf(
         1 to 2,    // Band 0:  Sub-Bass 30Hz - 40Hz
         1 to 2,    // Band 1:  Sub-Bass 40Hz - 50Hz
@@ -101,7 +106,7 @@ class RealTimeAudioVisualizer(private val context: Context) {
                         samplingRate: Int
                     ) {
                         if (waveform != null) {
-                            checkAudioPresence(waveform)
+                            checkAudioPresenceAndRms(waveform)
                         }
                     }
 
@@ -111,7 +116,7 @@ class RealTimeAudioVisualizer(private val context: Context) {
                         samplingRate: Int
                     ) {
                         if (fft != null) {
-                            processLogarithmicFft(fft)
+                            processCalibratedDecibelFft(fft)
                         }
                     }
                 }, captureRate / 2, true, true)
@@ -120,33 +125,38 @@ class RealTimeAudioVisualizer(private val context: Context) {
             startVerticalDecayLoop()
             Log.i(TAG, "RealTime Visualizer terhubung pada AudioSession ID: $sessionId")
         } catch (e: Exception) {
-            Log.w(TAG, "Visualizer init warning (memerlukan RECORD_AUDIO atau audio session): ${e.message}")
+            Log.w(TAG, "Visualizer init warning: ${e.message}")
             startVerticalDecayLoop()
         }
     }
 
-    private fun checkAudioPresence(waveform: ByteArray) {
-        var totalDeviation = 0
+    private fun checkAudioPresenceAndRms(waveform: ByteArray) {
+        var sumSquares = 0.0
         val sampleStep = max(1, waveform.size / 64)
+        var count = 0
         for (i in 0 until waveform.size step sampleStep) {
             val unsignedVal = waveform[i].toInt() and 0xFF
-            totalDeviation += abs(unsignedVal - 128)
+            val centered = (unsignedVal - 128) / 128.0
+            sumSquares += centered * centered
+            count++
         }
-        val avgDeviation = totalDeviation / (waveform.size / sampleStep)
-        isAudioStreaming = avgDeviation > 3
+        val rms = kotlin.math.sqrt(sumSquares / max(1, count))
+        currentRmsDb = if (rms > 0.0001) (20 * log10(rms)).toFloat().coerceIn(-60f, 0f) else -60f
+        isAudioStreaming = currentRmsDb > -45f
     }
 
-    private fun processLogarithmicFft(fft: ByteArray) {
+    private fun processCalibratedDecibelFft(fft: ByteArray) {
         val n = fft.size / 2
         if (n <= 0) return
 
         var hasSignificantSignal = false
+        val noiseFloorDb = -36f // Rentang dinamis VU Studio: -36 dBFS s/d 0 dBFS
 
         for (bandIdx in 0 until binCount) {
             val (startBin, endBin) = bandBinRanges[bandIdx]
             val actualStart = min(startBin, n - 1)
             val actualEnd = min(endBin, n)
-            var maxEnergy = 0f
+            var maxEnergy = 0.01f
 
             for (k in actualStart until actualEnd) {
                 val real = fft[2 * k].toFloat()
@@ -155,24 +165,27 @@ class RealTimeAudioVisualizer(private val context: Context) {
                 if (energy > maxEnergy) maxEnergy = energy
             }
 
-            // Normalisasi dinamis vertikal per frekuensi:
-            // Frekuensi tinggi (treble) memiliki energi lebih kecil daripada bass secara alami,
-            // sehingga diberikan kompensasi bobot kemiringan (*tilt boost*) agar seluruh bar bergerak seimbang.
-            val frequencyTilt = 1.0f + (bandIdx / binCount.toFloat()) * 0.8f
-            val normalized = ((maxEnergy / 65f) * frequencyTilt).coerceIn(0f, 1f)
+            // Kompensasi frekuensi tinggi alami (tilt weighting manusia)
+            val tiltFactor = 0.90f + (bandIdx / binCount.toFloat()) * 0.45f
+            val scaledEnergy = (maxEnergy * tiltFactor * sensitivityFactor)
 
-            if (normalized > 0.06f) {
+            // Hitung dalam skala Desibel (dBFS)
+            val db = (20 * log10(scaledEnergy.coerceAtLeast(0.01f) / 160f)).coerceIn(noiseFloorDb, 0f)
+
+            // Normalisasi 0.0f .. 1.0f dengan kalibrasi headroom yang pas
+            val targetNormalized = ((db - noiseFloorDb) / -noiseFloorDb).coerceIn(0f, 1f)
+
+            if (targetNormalized > 0.08f) {
                 hasSignificantSignal = true
             }
 
-            // Tiap kolom melompat ke atas seketika mengikuti puncak frekuensi
-            if (normalized > currentMagnitudes[bandIdx]) {
-                currentMagnitudes[bandIdx] = normalized
-            }
+            // Studio Ballistics: Fast Attack (lompatan gesit mengikuti nada)
+            val smoothed = currentMagnitudes[bandIdx] * 0.25f + targetNormalized * 0.75f
+            currentMagnitudes[bandIdx] = smoothed
 
-            // Peak Hold melonjak ke nilai tertinggi kolom tersebut
-            if (normalized >= peakMagnitudes[bandIdx]) {
-                peakMagnitudes[bandIdx] = normalized
+            // Peak Hold melayang di titik tertinggi
+            if (smoothed >= peakMagnitudes[bandIdx]) {
+                peakMagnitudes[bandIdx] = smoothed
             }
         }
 
@@ -183,7 +196,8 @@ class RealTimeAudioVisualizer(private val context: Context) {
         _visualizerFlow.value = VisualizerFrame(
             magnitudes = currentMagnitudes.copyOf(),
             peaks = peakMagnitudes.copyOf(),
-            hasAudioSignal = isAudioStreaming
+            hasAudioSignal = isAudioStreaming,
+            rmsLevelDb = currentRmsDb
         )
     }
 
@@ -194,23 +208,24 @@ class RealTimeAudioVisualizer(private val context: Context) {
                 delay(30) // ~33 FPS simulasi fisika vertikal (Gravity Fall)
 
                 if (isAudioStreaming) {
-                    // Audio Aktif: Bar meluncur turun secara vertikal (Decay Fall)
+                    // Audio Aktif: Decay lembut realistis (Weighted Release)
                     for (i in 0 until binCount) {
-                        currentMagnitudes[i] = max(0f, currentMagnitudes[i] * 0.80f)
-                        peakMagnitudes[i] = max(currentMagnitudes[i], peakMagnitudes[i] - 0.035f)
+                        currentMagnitudes[i] = max(0f, currentMagnitudes[i] * 0.84f)
+                        peakMagnitudes[i] = max(currentMagnitudes[i], peakMagnitudes[i] - 0.024f)
                     }
                 } else {
-                    // Audio Hening / Dijeda: Bar tenang di level dasar, TIDAK ADA gelombang kiri-kanan!
+                    // Audio Hening: Seluruh balok turun ke nol secara perlahan, tanpa gelombang!
                     for (i in 0 until binCount) {
-                        currentMagnitudes[i] = max(0f, currentMagnitudes[i] * 0.70f)
-                        peakMagnitudes[i] = max(0f, peakMagnitudes[i] * 0.75f)
+                        currentMagnitudes[i] = max(0f, currentMagnitudes[i] * 0.72f)
+                        peakMagnitudes[i] = max(0f, peakMagnitudes[i] - 0.040f)
                     }
                 }
 
                 _visualizerFlow.value = VisualizerFrame(
                     magnitudes = currentMagnitudes.copyOf(),
                     peaks = peakMagnitudes.copyOf(),
-                    hasAudioSignal = isAudioStreaming
+                    hasAudioSignal = isAudioStreaming,
+                    rmsLevelDb = currentRmsDb
                 )
             }
         }

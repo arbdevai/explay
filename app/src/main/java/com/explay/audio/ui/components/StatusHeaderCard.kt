@@ -55,7 +55,8 @@ fun StatusHeaderCard(
     deviceType: AudioDeviceType,
     profileName: String,
     visualizerFrame: VisualizerFrame,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isAutoMasterEnabled: Boolean = false
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -111,7 +112,9 @@ fun StatusHeaderCard(
                             letterSpacing = (-0.3).sp
                         )
                         Text(
-                            text = if (isEngineEnabled) "16-Band Dynamics Processing Aktif" else "Equalizer Siaga",
+                            text = if (isEngineEnabled) {
+                                if (isAutoMasterEnabled) "16-Band DPE + Auto-Master Aktif" else "16-Band Dynamics Processing Aktif"
+                            } else "Equalizer Siaga",
                             color = if (isEngineEnabled) PixelMintNeon else TextGoogleSecondary,
                             fontSize = 11.sp
                         )

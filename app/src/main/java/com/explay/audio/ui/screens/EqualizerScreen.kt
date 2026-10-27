@@ -1,8 +1,10 @@
 package com.explay.audio.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -21,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -28,8 +31,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +47,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.explay.audio.audio.automaster.AutoMasterStatus
 import com.explay.audio.data.model.AudioProfile
 import com.explay.audio.data.model.EqBand
 import com.explay.audio.ui.components.EqVerticalSlider
@@ -57,6 +67,10 @@ fun EqualizerScreen(
     currentProfile: AudioProfile,
     customProfiles: List<AudioProfile>,
     isEngineEnabled: Boolean,
+    isAutoMasterEnabled: Boolean,
+    autoMasterStatus: AutoMasterStatus,
+    onToggleAutoMaster: (Boolean) -> Unit,
+    onSensitivityChange: (Float) -> Unit,
     onBandGainChange: (Int, Float) -> Unit,
     onPreGainChange: (Float) -> Unit,
     onSelectPreset: (AudioProfile) -> Unit,
@@ -66,6 +80,7 @@ fun EqualizerScreen(
     val scrollState = rememberScrollState()
     val sliderRowScrollState = rememberScrollState()
     val allPresets = AudioProfile.PRESETS + customProfiles
+    var vuSensitivity by remember { mutableFloatStateOf(1.0f) }
 
     Column(
         modifier = modifier
@@ -80,7 +95,118 @@ fun EqualizerScreen(
             isEnabled = isEngineEnabled
         )
 
-        // 2. Chip Carousel Pemilihan Preset Cepat (Pixel Style)
+        // 2. Fitur Unggulan: Smart Auto-Master Console Card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(if (isAutoMasterEnabled) Color(0xFF0B1F19) else PixelSurfaceDefault)
+                .border(
+                    1.dp,
+                    if (isAutoMasterEnabled) PixelMint.copy(alpha = 0.5f) else PixelBorderSubtle,
+                    RoundedCornerShape(24.dp)
+                )
+                .padding(18.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = if (isAutoMasterEnabled) PixelMintNeon else TextGoogleSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Smart Auto-Master",
+                                color = TextGooglePrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (isAutoMasterEnabled) "Adaptasi Cerdas Audio Random Aktif" else "Menormalkan audio acak secara otomatis",
+                                color = if (isAutoMasterEnabled) PixelMintNeon else TextGoogleSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = isAutoMasterEnabled,
+                        onCheckedChange = {
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                            onToggleAutoMaster(it)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = PixelOledBlack,
+                            checkedTrackColor = PixelMint,
+                            uncheckedThumbColor = TextGoogleSecondary,
+                            uncheckedTrackColor = PixelSurfaceContainer
+                        )
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = isAutoMasterEnabled,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(PixelSurfaceContainer)
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "Kualitas Terdeteksi:", color = TextGoogleSecondary, fontSize = 11.sp)
+                            Text(
+                                text = autoMasterStatus.detectedQuality,
+                                color = PixelMintNeon,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "Auto-Loudness Leveler:", color = TextGoogleSecondary, fontSize = 11.sp)
+                            val sign = if (autoMasterStatus.autoGainCompensationDb > 0) "+" else ""
+                            Text(
+                                text = "$sign${autoMasterStatus.autoGainCompensationDb} dB Target",
+                                color = Color(0xFF00E5FF),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        if (autoMasterStatus.trebleExciterActive) {
+                            Text(
+                                text = "• Dynamic Exciter: Membuka detail treble pada audio terkompresi.",
+                                color = Color(0xFFA7F3D0),
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Chip Carousel Pemilihan Preset Cepat (Pixel Style)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -139,7 +265,7 @@ fun EqualizerScreen(
             }
         }
 
-        // 3. 16 Slider Vertikal Presisi Google Pixel
+        // 4. 16 Slider Vertikal Presisi Google Pixel
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -199,7 +325,58 @@ fun EqualizerScreen(
             }
         }
 
-        // 4. Pre-Amp / Input Gain Controller
+        // 5. Kalibrasi Sensitivitas LED VU Visualizer
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(PixelSurfaceDefault)
+                .border(1.dp, PixelBorderSubtle, RoundedCornerShape(20.dp))
+                .padding(16.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Sensitivitas Spectrum LED VU",
+                        color = TextGooglePrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "${(vuSensitivity * 10).roundToInt() / 10f}x",
+                        color = PixelMintNeon,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Slider(
+                    value = vuSensitivity,
+                    onValueChange = {
+                        vuSensitivity = it
+                        onSensitivityChange(it)
+                    },
+                    valueRange = 0.4f..2.0f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = PixelMint,
+                        activeTrackColor = PixelMintNeon,
+                        inactiveTrackColor = PixelSurfaceContainer
+                    )
+                )
+
+                Text(
+                    text = "Sesuaikan kepekaan balok LED agar memantul pas dengan volume lagu yang sedang Anda putar.",
+                    color = Color(0xFF5F6368),
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        // 6. Pre-Amp / Input Gain Controller
         Box(
             modifier = Modifier
                 .fillMaxWidth()

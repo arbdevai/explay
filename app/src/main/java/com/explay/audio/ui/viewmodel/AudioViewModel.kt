@@ -3,6 +3,8 @@ package com.explay.audio.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.explay.audio.audio.automaster.AutoMasterStatus
+import com.explay.audio.audio.automaster.SmartAutoMasterEngine
 import com.explay.audio.audio.engine.AudioEngineManager
 import com.explay.audio.audio.service.AudioEngineService
 import com.explay.audio.audio.visualizer.RealTimeAudioVisualizer
@@ -25,8 +27,16 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AudioPreferencesRepository(application.applicationContext)
     private val audioEngine = AudioEngineManager.getInstance(application.applicationContext)
     private val realTimeVisualizer = RealTimeAudioVisualizer.getInstance(application.applicationContext)
+    private val smartAutoMasterEngine = SmartAutoMasterEngine.getInstance(application.applicationContext)
 
     val visualizerFrame: StateFlow<VisualizerFrame> = realTimeVisualizer.visualizerFlow
+    val autoMasterStatus: StateFlow<AutoMasterStatus> = smartAutoMasterEngine.statusFlow
+
+    val isAutoMasterEnabled: StateFlow<Boolean> = repository.isAutoMasterEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
 
     val isEngineEnabled: StateFlow<Boolean> = repository.isEngineEnabled.stateIn(
         scope = viewModelScope,
@@ -84,6 +94,12 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        viewModelScope.launch {
+            isAutoMasterEnabled.collect { enabled ->
+                smartAutoMasterEngine.setEnabled(enabled)
+            }
+        }
+
         refreshDiagnostics()
     }
 
@@ -97,6 +113,17 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             repository.setEngineEnabled(enabled)
             audioEngine.setEngineEnabled(enabled)
         }
+    }
+
+    fun toggleAutoMaster(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setAutoMasterEnabled(enabled)
+            smartAutoMasterEngine.setEnabled(enabled)
+        }
+    }
+
+    fun setVisualizerSensitivity(factor: Float) {
+        realTimeVisualizer.sensitivityFactor = factor.coerceIn(0.4f, 2.5f)
     }
 
     fun setBandGain(index: Int, gainDb: Float) {

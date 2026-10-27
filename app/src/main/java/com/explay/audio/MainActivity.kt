@@ -97,6 +97,8 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val isEngineEnabled by audioViewModel.isEngineEnabled.collectAsStateWithLifecycle()
+                val isAutoMasterEnabled by audioViewModel.isAutoMasterEnabled.collectAsStateWithLifecycle()
+                val autoMasterStatus by audioViewModel.autoMasterStatus.collectAsStateWithLifecycle()
                 val currentProfile by audioViewModel.currentProfile.collectAsStateWithLifecycle()
                 val customProfiles by audioViewModel.customProfiles.collectAsStateWithLifecycle()
                 val currentDeviceType by audioViewModel.currentDeviceType.collectAsStateWithLifecycle()
@@ -172,6 +174,7 @@ class MainActivity : ComponentActivity() {
                         // Header Status Terpusat Google Pixel
                         StatusHeaderCard(
                             isEngineEnabled = isEngineEnabled,
+                            isAutoMasterEnabled = isAutoMasterEnabled,
                             onToggleEngine = { audioViewModel.toggleEngine(it) },
                             deviceType = currentDeviceType,
                             profileName = currentProfile.name,
@@ -199,6 +202,10 @@ class MainActivity : ComponentActivity() {
                                     currentProfile = currentProfile,
                                     customProfiles = customProfiles,
                                     isEngineEnabled = isEngineEnabled,
+                                    isAutoMasterEnabled = isAutoMasterEnabled,
+                                    autoMasterStatus = autoMasterStatus,
+                                    onToggleAutoMaster = { audioViewModel.toggleAutoMaster(it) },
+                                    onSensitivityChange = { audioViewModel.setVisualizerSensitivity(it) },
                                     onBandGainChange = { idx, db -> audioViewModel.setBandGain(idx, db) },
                                     onPreGainChange = { db -> audioViewModel.setPreGain(db) },
                                     onSelectPreset = { preset -> audioViewModel.selectPreset(preset) }

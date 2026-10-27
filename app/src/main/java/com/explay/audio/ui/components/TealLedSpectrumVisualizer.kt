@@ -33,7 +33,8 @@ import kotlin.math.roundToInt
 fun TealLedSpectrumVisualizer(
     frame: VisualizerFrame,
     isEnabled: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    autoMasterLabel: String? = null
 ) {
     val totalSegments = 10
     val columns = frame.magnitudes.size // 24 bands
@@ -41,7 +42,7 @@ fun TealLedSpectrumVisualizer(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(110.dp)
+            .height(118.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(PixelSurfaceDefault)
             .border(1.dp, PixelBorderSubtle, RoundedCornerShape(20.dp))
@@ -64,28 +65,31 @@ fun TealLedSpectrumVisualizer(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(if (frame.hasAudioSignal) Color(0xFF00F5D4) else Color(0xFF00897B))
+                            .background(if (frame.hasAudioSignal) Color(0xFF00F5D4) else Color(0xFF1E2D2B))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = if (frame.hasAudioSignal) "LIVE FFT" else "IDLE SIGNAL",
-                            color = Color(0xFF000000),
+                            text = if (frame.hasAudioSignal) "STUDIO VU" else "STANDBY",
+                            color = if (frame.hasAudioSignal) Color(0xFF000000) else Color(0xFF5F6368),
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
+
                     Text(
-                        text = "Real-Time Spectrum LED VU",
+                        text = autoMasterLabel ?: "24-Band Matrix (-36 s/d 0 dBFS)",
                         color = Color(0xFFE2E8F0),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
 
+                val rmsText = if (frame.hasAudioSignal) "${frame.rmsLevelDb.roundToInt()} dB" else "-- dB"
                 Text(
-                    text = "24-Band Matrix",
+                    text = "RMS: $rmsText",
                     color = TextGoogleSecondary,
-                    fontSize = 10.sp
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
 
@@ -93,7 +97,7 @@ fun TealLedSpectrumVisualizer(
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(68.dp)
+                    .height(72.dp)
             ) {
                 val canvasW = size.width
                 val canvasH = size.height
@@ -115,17 +119,18 @@ fun TealLedSpectrumVisualizer(
                     val peakSegmentIndex = (peak * (totalSegments - 1)).roundToInt().coerceIn(0, totalSegments - 1)
 
                     for (seg in 0 until totalSegments) {
-                        // Segment 0 adalah paling bawah, segment (totalSegments - 1) adalah paling atas
+                        // Segment 0 adalah paling bawah (-36dB), Segment 9 adalah paling atas (0dB Peak)
                         val segY = canvasH - (seg + 1) * segHeight - seg * segGap
                         val isLit = seg < activeSegments
 
                         val activeColor = when {
-                            seg >= 8 -> Color(0xFFE0F2FE) // Top Ice Teal / Cyan (Highest Level)
-                            seg >= 5 -> Color(0xFF00F5D4) // Mid Vibrant Neon Teal
-                            else -> Color(0xFF00B4D8)     // Low Studio Teal
+                            seg == 9 -> Color(0xFFEF4444) // 0 dB Clip Warning (Red)
+                            seg >= 7 -> Color(0xFFFBBF24) // -6 dB Headroom Warning (Amber)
+                            seg >= 4 -> Color(0xFF00F5D4) // -14 dB Mid Signal (Neon Teal)
+                            else -> Color(0xFF00B4D8)     // -36 dB Low Signal (Cyan Teal)
                         }
 
-                        val inactiveColor = Color(0xFF111E1C) // Dim inactive segment
+                        val inactiveColor = Color(0xFF101918) // Redup jika belum menyala
 
                         drawRoundRect(
                             color = if (isLit) activeColor else inactiveColor,
@@ -135,11 +140,16 @@ fun TealLedSpectrumVisualizer(
                         )
                     }
 
-                    // Floating Peak Hold Dot / Segment
+                    // Floating Peak Hold LED di Puncak
                     if (isEnabled && peakSegmentIndex > 0) {
                         val peakY = canvasH - (peakSegmentIndex + 1) * segHeight - peakSegmentIndex * segGap
+                        val peakColor = when {
+                            peakSegmentIndex == 9 -> Color(0xFFEF4444)
+                            peakSegmentIndex >= 7 -> Color(0xFFFBBF24)
+                            else -> Color(0xFFFFFFFF) // White floating dot
+                        }
                         drawRoundRect(
-                            color = if (peakSegmentIndex >= 8) Color(0xFFFFFFFF) else Color(0xFF00F5D4),
+                            color = peakColor,
                             topLeft = Offset(colLeft, peakY),
                             size = Size(colWidth, segHeight),
                             cornerRadius = corner
