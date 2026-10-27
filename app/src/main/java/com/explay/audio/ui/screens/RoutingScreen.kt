@@ -42,20 +42,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.explay.audio.data.model.AudioDeviceType
 import com.explay.audio.data.model.AudioProfile
-import com.explay.audio.ui.theme.CardBackground
-import com.explay.audio.ui.theme.DeepBackground
-import com.explay.audio.ui.theme.EmeraldPrimary
-import com.explay.audio.ui.theme.EmeraldPrimaryGlow
-import com.explay.audio.ui.theme.EmeraldTertiary
-import com.explay.audio.ui.theme.StatusError
-import com.explay.audio.ui.theme.SurfaceBorder
-import com.explay.audio.ui.theme.TextPrimary
-import com.explay.audio.ui.theme.TextSecondary
+import com.explay.audio.ui.theme.PixelBorderSubtle
+import com.explay.audio.ui.theme.PixelMint
+import com.explay.audio.ui.theme.PixelMintNeon
+import com.explay.audio.ui.theme.PixelOledBlack
+import com.explay.audio.ui.theme.PixelSurfaceContainer
+import com.explay.audio.ui.theme.PixelSurfaceDefault
+import com.explay.audio.ui.theme.StatusDanger
+import com.explay.audio.ui.theme.TextGooglePrimary
+import com.explay.audio.ui.theme.TextGoogleSecondary
 
 @Composable
 fun RoutingScreen(
@@ -71,6 +72,7 @@ fun RoutingScreen(
     onSelectPreset: (AudioProfile) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val scrollState = rememberScrollState()
     var showSaveDialog by remember { mutableStateOf(false) }
     var presetNameInput by remember { mutableStateOf("") }
@@ -86,25 +88,25 @@ fun RoutingScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(CardBackground)
-                .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
-                .padding(16.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(PixelSurfaceDefault)
+                .border(1.dp, PixelBorderSubtle, RoundedCornerShape(24.dp))
+                .padding(18.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Perutean Output Perangkat (Routing)",
-                    color = TextPrimary,
+                    text = "Perutean Output Perangkat",
+                    color = TextGooglePrimary,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF16251E))
-                        .padding(12.dp),
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(PixelSurfaceContainer)
+                        .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -117,18 +119,18 @@ fun RoutingScreen(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = EmeraldPrimaryGlow,
+                        tint = PixelMintNeon,
                         modifier = Modifier.size(28.dp)
                     )
                     Column {
                         Text(
                             text = "Output Audio Aktif:",
-                            color = TextSecondary,
+                            color = TextGoogleSecondary,
                             fontSize = 11.sp
                         )
                         Text(
                             text = currentDeviceType.displayName,
-                            color = TextPrimary,
+                            color = TextGooglePrimary,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -141,17 +143,17 @@ fun RoutingScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(CardBackground)
-                .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
-                .padding(16.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(PixelSurfaceDefault)
+                .border(1.dp, PixelBorderSubtle, RoundedCornerShape(24.dp))
+                .padding(18.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    text = "Konfigurasi Efek Bebas Gimik",
-                    color = TextPrimary,
+                    text = "Konfigurasi Audio Bebas Hambatan",
+                    color = TextGooglePrimary,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
 
                 // Toggle Speaker
@@ -162,25 +164,28 @@ fun RoutingScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Terapkan Efek di Speaker HP",
-                            color = TextPrimary,
+                            text = "Paksa Efek di Speaker HP",
+                            color = TextGooglePrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "Efek tetap aktif tanpa perlu colok headset fisik.",
-                            color = TextSecondary,
+                            text = "Efek audio aktif tanpa perlu colok headset fisik.",
+                            color = TextGoogleSecondary,
                             fontSize = 11.sp
                         )
                     }
                     Switch(
                         checked = forceSpeaker,
-                        onCheckedChange = onForceSpeakerChange,
+                        onCheckedChange = {
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                            onForceSpeakerChange(it)
+                        },
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = DeepBackground,
-                            checkedTrackColor = EmeraldPrimaryGlow,
-                            uncheckedThumbColor = TextSecondary,
-                            uncheckedTrackColor = Color(0xFF1E2D25)
+                            checkedThumbColor = PixelOledBlack,
+                            checkedTrackColor = PixelMint,
+                            uncheckedThumbColor = TextGoogleSecondary,
+                            uncheckedTrackColor = PixelSurfaceContainer
                         )
                     )
                 }
@@ -193,25 +198,28 @@ fun RoutingScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Terapkan Efek di Bluetooth Audio (A2DP)",
-                            color = TextPrimary,
+                            text = "Paksa Efek di Bluetooth Audio (A2DP)",
+                            color = TextGooglePrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "Kompensasi otomatis saat terhubung ke TWS/Speaker Bluetooth.",
-                            color = TextSecondary,
+                            text = "Kompensasi sinyal otomatis ke TWS dan speaker Bluetooth.",
+                            color = TextGoogleSecondary,
                             fontSize = 11.sp
                         )
                     }
                     Switch(
                         checked = forceBluetooth,
-                        onCheckedChange = onForceBluetoothChange,
+                        onCheckedChange = {
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                            onForceBluetoothChange(it)
+                        },
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = DeepBackground,
-                            checkedTrackColor = EmeraldPrimaryGlow,
-                            uncheckedThumbColor = TextSecondary,
-                            uncheckedTrackColor = Color(0xFF1E2D25)
+                            checkedThumbColor = PixelOledBlack,
+                            checkedTrackColor = PixelMint,
+                            uncheckedThumbColor = TextGoogleSecondary,
+                            uncheckedTrackColor = PixelSurfaceContainer
                         )
                     )
                 }
@@ -222,10 +230,10 @@ fun RoutingScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(CardBackground)
-                .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
-                .padding(16.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(PixelSurfaceDefault)
+                .border(1.dp, PixelBorderSubtle, RoundedCornerShape(24.dp))
+                .padding(18.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
@@ -235,9 +243,9 @@ fun RoutingScreen(
                 ) {
                     Text(
                         text = "Preset Pengguna",
-                        color = TextPrimary,
+                        color = TextGooglePrimary,
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Bold
                     )
 
                     Button(
@@ -245,17 +253,18 @@ fun RoutingScreen(
                             presetNameInput = ""
                             showSaveDialog = true
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = PixelMint),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            tint = DeepBackground,
+                            tint = PixelOledBlack,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Simpan Setting",
-                            color = DeepBackground,
+                            text = "Simpan Profil",
+                            color = PixelOledBlack,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(start = 4.dp)
@@ -265,8 +274,8 @@ fun RoutingScreen(
 
                 if (customProfiles.isEmpty()) {
                     Text(
-                        text = "Belum ada preset kustom yang disimpan. Atur 16-band EQ dan klik 'Simpan Setting' untuk membuat profil baru.",
-                        color = TextSecondary,
+                        text = "Belum ada preset kustom yang disimpan. Sesuaikan equalizer di tab pertama lalu klik 'Simpan Profil'.",
+                        color = Color(0xFF5F6368),
                         fontSize = 12.sp
                     )
                 } else {
@@ -275,22 +284,22 @@ fun RoutingScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) Color(0xFF1B3026) else Color(0xFF13201A))
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isSelected) Color(0xFF132D1F) else PixelSurfaceContainer)
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = profile.name,
-                                    color = if (isSelected) EmeraldTertiary else TextPrimary,
+                                    color = if (isSelected) PixelMintNeon else TextGooglePrimary,
                                     fontSize = 13.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                                 Text(
-                                    text = if (isSelected) "Sedang Digunakan" else "Ketuk untuk Memuat",
-                                    color = TextSecondary,
+                                    text = if (isSelected) "Sedang Aktif" else "Ketuk untuk Memuat",
+                                    color = TextGoogleSecondary,
                                     fontSize = 11.sp
                                 )
                             }
@@ -298,14 +307,14 @@ fun RoutingScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 if (!isSelected) {
                                     TextButton(onClick = { onSelectPreset(profile) }) {
-                                        Text(text = "Pakai", color = EmeraldPrimary, fontSize = 12.sp)
+                                        Text(text = "Pakai", color = PixelMint, fontSize = 12.sp)
                                     }
                                 }
                                 IconButton(onClick = { onDeleteCustomPreset(profile.id) }) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
                                         contentDescription = "Hapus",
-                                        tint = StatusError.copy(alpha = 0.8f),
+                                        tint = StatusDanger.copy(alpha = 0.8f),
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -316,32 +325,33 @@ fun RoutingScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(20.dp))
     }
 
-    // Dialog Simpan Preset
+    // Dialog Simpan Preset Google Pixel Style
     if (showSaveDialog) {
         AlertDialog(
             onDismissRequest = { showSaveDialog = false },
-            title = { Text(text = "Simpan Preset Kustom", color = TextPrimary) },
+            title = { Text(text = "Simpan Profil Kustom", color = TextGooglePrimary, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Masukkan nama untuk profil equalizer saat ini:",
-                        color = TextSecondary,
+                        text = "Masukkan nama profil untuk konfigurasi audio saat ini:",
+                        color = TextGoogleSecondary,
                         fontSize = 12.sp
                     )
                     OutlinedTextField(
                         value = presetNameInput,
                         onValueChange = { presetNameInput = it },
-                        placeholder = { Text("Nama Preset (misal: Heavy Metal / Warm Bass)") },
+                        placeholder = { Text("Contoh: Rock Hard / Audiophile Master") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = EmeraldPrimaryGlow,
-                            unfocusedBorderColor = SurfaceBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        )
+                            focusedBorderColor = PixelMint,
+                            unfocusedBorderColor = PixelBorderSubtle,
+                            focusedTextColor = TextGooglePrimary,
+                            unfocusedTextColor = TextGooglePrimary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     )
                 }
             },
@@ -353,17 +363,19 @@ fun RoutingScreen(
                             showSaveDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = PixelMint),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(text = "Simpan", color = DeepBackground, fontWeight = FontWeight.Bold)
+                    Text(text = "Simpan", color = PixelOledBlack, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showSaveDialog = false }) {
-                    Text(text = "Batal", color = TextSecondary)
+                    Text(text = "Batal", color = TextGoogleSecondary)
                 }
             },
-            containerColor = CardBackground
+            containerColor = PixelSurfaceDefault,
+            shape = RoundedCornerShape(24.dp)
         )
     }
 }

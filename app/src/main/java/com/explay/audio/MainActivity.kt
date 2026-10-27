@@ -18,6 +18,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Equalizer
@@ -43,8 +45,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -54,17 +58,19 @@ import com.explay.audio.ui.screens.EffectsScreen
 import com.explay.audio.ui.screens.EqualizerScreen
 import com.explay.audio.ui.screens.HalDiagnosticsScreen
 import com.explay.audio.ui.screens.RoutingScreen
-import com.explay.audio.ui.theme.DeepBackground
-import com.explay.audio.ui.theme.EmeraldPrimary
-import com.explay.audio.ui.theme.EmeraldPrimaryGlow
 import com.explay.audio.ui.theme.ExPlayAudioTheme
-import com.explay.audio.ui.theme.SurfaceDark
-import com.explay.audio.ui.theme.TextSecondary
+import com.explay.audio.ui.theme.PixelBorderSubtle
+import com.explay.audio.ui.theme.PixelMint
+import com.explay.audio.ui.theme.PixelMintNeon
+import com.explay.audio.ui.theme.PixelOledBlack
+import com.explay.audio.ui.theme.PixelSurfaceContainer
+import com.explay.audio.ui.theme.PixelSurfaceDefault
+import com.explay.audio.ui.theme.TextGoogleSecondary
 import com.explay.audio.ui.viewmodel.AudioViewModel
 
 enum class NavigationTab(val title: String, val icon: ImageVector) {
     EQUALIZER("Equalizer", Icons.Default.Equalizer),
-    EFFECTS("Efek & Bass", Icons.Default.SurroundSound),
+    EFFECTS("Efek & Dial", Icons.Default.SurroundSound),
     ROUTING("Perutean", Icons.Default.Router),
     DIAGNOSTICS("HAL Audio", Icons.Default.Analytics)
 }
@@ -80,6 +86,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ExPlayAudioTheme {
                 RequestNotificationPermission()
+                val haptic = LocalHapticFeedback.current
 
                 var currentTabIndex by remember { mutableIntStateOf(0) }
                 val tabs = NavigationTab.values()
@@ -101,39 +108,56 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(DeepBackground),
-                    containerColor = DeepBackground,
+                        .background(PixelOledBlack),
+                    containerColor = PixelOledBlack,
                     bottomBar = {
-                        NavigationBar(
-                            containerColor = SurfaceDark,
-                            tonalElevation = 8.dp,
-                            modifier = Modifier.navigationBarsPadding()
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(PixelOledBlack)
+                                .navigationBarsPadding()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            tabs.forEachIndexed { index, tab ->
-                                val selected = currentTabIndex == index
-                                NavigationBarItem(
-                                    selected = selected,
-                                    onClick = { currentTabIndex = index },
-                                    icon = {
-                                        Icon(
-                                            imageVector = tab.icon,
-                                            contentDescription = tab.title
+                            NavigationBar(
+                                containerColor = PixelSurfaceDefault,
+                                tonalElevation = 0.dp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(28.dp))
+                                    .border(1.dp, PixelBorderSubtle, RoundedCornerShape(28.dp))
+                            ) {
+                                tabs.forEachIndexed { index, tab ->
+                                    val selected = currentTabIndex == index
+                                    NavigationBarItem(
+                                        selected = selected,
+                                        onClick = {
+                                            if (currentTabIndex != index) {
+                                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                                currentTabIndex = index
+                                            }
+                                        },
+                                        icon = {
+                                            Icon(
+                                                imageVector = tab.icon,
+                                                contentDescription = tab.title
+                                            )
+                                        },
+                                        label = {
+                                            Text(
+                                                text = tab.title,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = PixelOledBlack,
+                                            selectedTextColor = PixelMintNeon,
+                                            indicatorColor = PixelMint,
+                                            unselectedIconColor = TextGoogleSecondary,
+                                            unselectedTextColor = TextGoogleSecondary
                                         )
-                                    },
-                                    label = {
-                                        Text(
-                                            text = tab.title,
-                                            fontSize = 11.sp
-                                        )
-                                    },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = DeepBackground,
-                                        selectedTextColor = EmeraldPrimaryGlow,
-                                        indicatorColor = EmeraldPrimary,
-                                        unselectedIconColor = TextSecondary,
-                                        unselectedTextColor = TextSecondary
                                     )
-                                )
+                                }
                             }
                         }
                     }
@@ -144,7 +168,7 @@ class MainActivity : ComponentActivity() {
                             .padding(innerPadding)
                             .statusBarsPadding()
                     ) {
-                        // Header Status Terpusat
+                        // Header Status Terpusat Google Pixel
                         StatusHeaderCard(
                             isEngineEnabled = isEngineEnabled,
                             onToggleEngine = { audioViewModel.toggleEngine(it) },
@@ -153,7 +177,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
 
-                        // Konten Layar dengan Transisi Halus (Slide + Fade)
+                        // Konten Layar dengan Transisi Halus (Slide + Fade Directional)
                         AnimatedContent(
                             targetState = currentTabIndex,
                             transitionSpec = {

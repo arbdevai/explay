@@ -10,24 +10,25 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = EmeraldPrimary,
-    onPrimary = DeepBackground,
-    primaryContainer = SurfaceVariantDark,
-    onPrimaryContainer = EmeraldTertiary,
-    secondary = EmeraldSecondary,
-    onSecondary = DeepBackground,
-    secondaryContainer = CardBackground,
-    onSecondaryContainer = EmeraldTertiary,
-    tertiary = EmeraldTertiary,
-    background = DeepBackground,
-    onBackground = TextPrimary,
-    surface = SurfaceDark,
-    onSurface = TextPrimary,
-    surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = TextSecondary,
-    outline = SurfaceBorder,
-    error = StatusError
+private val PixelDarkColorScheme = darkColorScheme(
+    primary = PixelMint,
+    onPrimary = PixelOledBlack,
+    primaryContainer = PixelMintContainer,
+    onPrimaryContainer = PixelMintOnContainer,
+    secondary = PixelMintNeon,
+    onSecondary = PixelOledBlack,
+    secondaryContainer = PixelSurfaceContainer,
+    onSecondaryContainer = TextGooglePrimary,
+    tertiary = PixelCyanAccent,
+    background = PixelOledBlack,
+    onBackground = TextGooglePrimary,
+    surface = PixelSurfaceDefault,
+    onSurface = TextGooglePrimary,
+    surfaceVariant = PixelSurfaceContainer,
+    onSurfaceVariant = TextGoogleSecondary,
+    outline = PixelBorderSubtle,
+    outlineVariant = PixelBorderActive,
+    error = StatusDanger
 )
 
 @Composable
@@ -35,15 +36,16 @@ fun ExPlayAudioTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val colorScheme = DarkColorScheme
+    val colorScheme = PixelDarkColorScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = DeepBackground.toArgb()
-            window.navigationBarColor = DeepBackground.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
-            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
+            window.statusBarColor = PixelOledBlack.toArgb()
+            window.navigationBarColor = PixelOledBlack.toArgb()
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = false
+            controller.isAppearanceLightNavigationBars = false
         }
     }
 

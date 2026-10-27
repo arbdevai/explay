@@ -1,6 +1,10 @@
 package com.explay.audio.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,19 +31,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.explay.audio.data.model.AudioDeviceType
-import com.explay.audio.ui.theme.CardBackground
-import com.explay.audio.ui.theme.DeepBackground
-import com.explay.audio.ui.theme.EmeraldPrimary
-import com.explay.audio.ui.theme.EmeraldPrimaryGlow
-import com.explay.audio.ui.theme.EmeraldTertiary
-import com.explay.audio.ui.theme.SurfaceBorder
-import com.explay.audio.ui.theme.TextPrimary
-import com.explay.audio.ui.theme.TextSecondary
+import com.explay.audio.ui.theme.PixelBorderSubtle
+import com.explay.audio.ui.theme.PixelMint
+import com.explay.audio.ui.theme.PixelMintNeon
+import com.explay.audio.ui.theme.PixelOledBlack
+import com.explay.audio.ui.theme.PixelSurfaceContainer
+import com.explay.audio.ui.theme.PixelSurfaceDefault
+import com.explay.audio.ui.theme.TextGooglePrimary
+import com.explay.audio.ui.theme.TextGoogleSecondary
 
 @Composable
 fun StatusHeaderCard(
@@ -49,18 +55,31 @@ fun StatusHeaderCard(
     profileName: String,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+
     val statusColor by animateColorAsState(
-        targetValue = if (isEngineEnabled) EmeraldPrimaryGlow else Color(0xFF6B7280),
-        animationSpec = tween(400),
-        label = "statusColor"
+        targetValue = if (isEngineEnabled) PixelMintNeon else Color(0xFF5F6368),
+        animationSpec = tween(300),
+        label = "statusDotColor"
+    )
+
+    val pulseTransition = rememberInfiniteTransition(label = "pulseTransition")
+    val dotScale by pulseTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.25f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dotScaleAnim"
     )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(CardBackground)
-            .border(1.dp, SurfaceBorder, RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(24.dp))
+            .background(PixelSurfaceDefault)
+            .border(1.dp, PixelBorderSubtle, RoundedCornerShape(24.dp))
             .padding(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -76,36 +95,47 @@ fun StatusHeaderCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
+                            .size(10.dp)
+                            .scale(if (isEngineEnabled) dotScale else 1f)
                             .clip(CircleShape)
                             .background(statusColor)
                     )
                     Column {
                         Text(
                             text = "ExPlay Audio Engine",
-                            color = TextPrimary,
+                            color = TextGooglePrimary,
                             fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.3).sp
                         )
                         Text(
-                            text = if (isEngineEnabled) "16-Band Dynamics Processing Aktif" else "Equalizer Nonaktif",
-                            color = if (isEngineEnabled) EmeraldTertiary else TextSecondary,
-                            fontSize = 12.sp
+                            text = if (isEngineEnabled) "16-Band Dynamics Processing Aktif" else "Equalizer Siaga",
+                            color = if (isEngineEnabled) PixelMintNeon else TextGoogleSecondary,
+                            fontSize = 11.sp
                         )
                     }
                 }
 
                 Switch(
                     checked = isEngineEnabled,
-                    onCheckedChange = onToggleEngine,
+                    onCheckedChange = {
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                        onToggleEngine(it)
+                    },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = DeepBackground,
-                        checkedTrackColor = EmeraldPrimaryGlow,
-                        uncheckedThumbColor = TextSecondary,
-                        uncheckedTrackColor = Color(0xFF1E2D25)
+                        checkedThumbColor = PixelOledBlack,
+                        checkedTrackColor = PixelMint,
+                        uncheckedThumbColor = TextGoogleSecondary,
+                        uncheckedTrackColor = PixelSurfaceContainer
                     )
                 )
             }
+
+            // Real-Time Audio Visualizer Wave Canvas
+            PixelAudioVisualizer(
+                isActive = isEngineEnabled,
+                modifier = Modifier.fillMaxWidth()
+            )
 
             // Baris Bawah: Status Output Device & Preset Aktif
             Row(
@@ -116,9 +146,9 @@ fun StatusHeaderCard(
                 // Chip Output Device
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF182820))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(PixelSurfaceContainer)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -131,12 +161,12 @@ fun StatusHeaderCard(
                     Icon(
                         imageVector = deviceIcon,
                         contentDescription = null,
-                        tint = EmeraldPrimary,
-                        modifier = Modifier.size(16.dp)
+                        tint = PixelMint,
+                        modifier = Modifier.size(15.dp)
                     )
                     Text(
                         text = deviceType.displayName,
-                        color = TextPrimary,
+                        color = TextGooglePrimary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -145,14 +175,13 @@ fun StatusHeaderCard(
                 // Badge Preset Aktif
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF13231B))
-                        .border(1.dp, Color(0xFF233B2E), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(PixelSurfaceContainer)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = "Preset: $profileName",
-                        color = EmeraldTertiary,
+                        color = PixelMintNeon,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )

@@ -19,13 +19,13 @@
         <!-- WiFi Arc 2 (Themed Accent Glow) -->
         <path
             android:fillColor="#00000000"
-            android:strokeColor="#A7F3D0"
+            android:strokeColor="#69F0AE"
             android:strokeWidth="5"
             android:strokeLineCap="round"
             android:pathData="M 40,55 A 16,16 0 0 1 68,55" />
         <!-- Fiber Optic Pulse / Fast Lightning -->
         <path
-            android:fillColor="#FFFFFF"
+            android:fillColor="#00E676"
             android:pathData="M 57,48 L 47,63 L 53,63 L 49,76 L 62,59 L 56,59 Z" />
     </group>
 </vector>
