@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.explay.audio.audio.engine.AudioEngineManager
 import com.explay.audio.audio.service.AudioEngineService
+import com.explay.audio.audio.visualizer.RealTimeAudioVisualizer
+import com.explay.audio.audio.visualizer.VisualizerFrame
 import com.explay.audio.data.diagnostic.HalInspector
 import com.explay.audio.data.model.AudioDeviceType
 import com.explay.audio.data.model.AudioProfile
@@ -22,6 +24,9 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = AudioPreferencesRepository(application.applicationContext)
     private val audioEngine = AudioEngineManager.getInstance(application.applicationContext)
+    private val realTimeVisualizer = RealTimeAudioVisualizer.getInstance(application.applicationContext)
+
+    val visualizerFrame: StateFlow<VisualizerFrame> = realTimeVisualizer.visualizerFlow
 
     val isEngineEnabled: StateFlow<Boolean> = repository.isEngineEnabled.stateIn(
         scope = viewModelScope,
@@ -62,8 +67,9 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
     val deviceDiagnostics: StateFlow<Map<String, String>> = _deviceDiagnostics.asStateFlow()
 
     init {
-        // Mulai Foreground Service Audio Engine
+        // Mulai Foreground Service Audio Engine & Real-Time Visualizer
         AudioEngineService.start(application.applicationContext, 0)
+        realTimeVisualizer.start(0)
 
         // Sinkronisasi engine dengan profil tersimpan
         viewModelScope.launch {
@@ -189,5 +195,10 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
             repository.saveCurrentProfile(profile)
             audioEngine.applyProfile(profile)
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        realTimeVisualizer.release()
     }
 }

@@ -2,13 +2,24 @@ package com.explay.audio.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,12 +40,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.explay.audio.ui.theme.PixelMint
-import com.explay.audio.ui.theme.PixelMintNeon
+import com.explay.audio.ui.theme.PixelBorderSubtle
 import com.explay.audio.ui.theme.PixelSurfaceContainer
 import com.explay.audio.ui.theme.PixelSurfaceDefault
 import com.explay.audio.ui.theme.TextGooglePrimary
 import com.explay.audio.ui.theme.TextGoogleSecondary
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -46,49 +57,65 @@ fun PixelRotaryKnob(
     valueRange: ClosedFloatingPointRange<Float>,
     modifier: Modifier = Modifier,
     displayFormatter: (Float) -> String = { "${it.toInt()}%" },
+    stepSize: Float = (valueRange.endInclusive - valueRange.start) / 20f,
     isEnabled: Boolean = true
 ) {
     val haptic = LocalHapticFeedback.current
-    var lastValueStep by remember { mutableFloatStateOf(value) }
-
     val rangeSpan = valueRange.endInclusive - valueRange.start
-    val normalized = ((value - valueRange.start) / rangeSpan).coerceIn(0f, 1f)
+    var currentValue by remember(value) { mutableFloatStateOf(value) }
 
-    // Sudut Knop: Mulai dari 135 derajat hingga 405 derajat (Total 270 derajat rentang)
+    val normalized = ((currentValue - valueRange.start) / rangeSpan).coerceIn(0f, 1f)
+
+    // Sudut Knop: Mulai dari 135° hingga 405° (Total rentang 270°)
     val startAngle = 135f
     val sweepTotal = 270f
     val activeSweep = normalized * sweepTotal
 
     Column(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
+        // Lingkaran Dial Utama Interaktif
         Box(
             modifier = Modifier
-                .size(92.dp)
+                .size(90.dp)
                 .clip(CircleShape)
                 .background(PixelSurfaceDefault)
-                .pointerInput(isEnabled) {
+                .border(1.dp, PixelBorderSubtle, CircleShape)
+                .pointerInput(isEnabled, valueRange) {
+                    if (!isEnabled) return@pointerInput
+                    detectTapGestures { offset ->
+                        // Ketuk atas/kanan untuk naik, bawah/kiri untuk turun
+                        val cx = size.width / 2f
+                        val cy = size.height / 2f
+                        val dy = offset.y - cy
+                        val change = if (dy < 0) stepSize else -stepSize
+                        val updated = (currentValue + change).coerceIn(valueRange.start, valueRange.endInclusive)
+                        currentValue = updated
+                        onValueChange(updated)
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                    }
+                }
+                .pointerInput(isEnabled, valueRange) {
                     if (!isEnabled) return@pointerInput
                     detectDragGestures { change, dragAmount ->
                         change.consume()
-                        // Geser ke atas / kanan = naikkan nilai, ke bawah / kiri = turunkan nilai
+                        // Drag vertikal ke atas (-dy) atau horisontal ke kanan (+dx) menaikkan nilai
                         val delta = -dragAmount.y + dragAmount.x
-                        val sensitivity = 0.005f
-                        val newNormalized = (normalized + delta * sensitivity).coerceIn(0f, 1f)
-                        val newValue = valueRange.start + newNormalized * rangeSpan
+                        val deltaNormalized = delta / 140f // Sensitivitas geser alami
+                        val newValue = (currentValue + deltaNormalized * rangeSpan).coerceIn(valueRange.start, valueRange.endInclusive)
 
-                        if (kotlin.math.abs(newValue - lastValueStep) > (rangeSpan * 0.04f)) {
-                            lastValueStep = newValue
+                        if (abs(newValue - currentValue) >= (rangeSpan * 0.015f)) {
+                            currentValue = newValue
+                            onValueChange(newValue)
                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
                         }
-
-                        onValueChange(newValue)
                     }
                 },
             contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.size(80.dp)) {
+            Canvas(modifier = Modifier.size(76.dp)) {
                 val strokeW = 6.dp.toPx()
                 val radius = (size.minDimension - strokeW) / 2f
                 val arcSize = Size(radius * 2, radius * 2)
@@ -96,7 +123,7 @@ fun PixelRotaryKnob(
 
                 // Background Track Arc
                 drawArc(
-                    color = Color(0xFF222228),
+                    color = Color(0xFF1E2625),
                     startAngle = startAngle,
                     sweepAngle = sweepTotal,
                     useCenter = false,
@@ -105,13 +132,14 @@ fun PixelRotaryKnob(
                     style = Stroke(width = strokeW, cap = StrokeCap.Round)
                 )
 
-                // Active Mint Arc
+                // Active Arc Neon Teal
                 if (activeSweep > 0f) {
                     val activeBrush = Brush.sweepGradient(
                         colors = listOf(
-                            PixelMint,
-                            PixelMintNeon,
-                            PixelMint
+                            Color(0xFF00B4D8),
+                            Color(0xFF00F5D4),
+                            Color(0xFF00E5FF),
+                            Color(0xFF00B4D8)
                         ),
                         center = center
                     )
@@ -125,14 +153,14 @@ fun PixelRotaryKnob(
                         style = Stroke(width = strokeW, cap = StrokeCap.Round)
                     )
 
-                    // Indicator Dot at End of Arc
+                    // Indicator Dot di Ujung Arc
                     val currentRad = Math.toRadians((startAngle + activeSweep).toDouble())
                     val dotCenter = Offset(
                         center.x + radius * cos(currentRad).toFloat(),
                         center.y + radius * sin(currentRad).toFloat()
                     )
                     drawCircle(
-                        color = if (isEnabled) PixelMintNeon else Color(0xFF9AA0A6),
+                        color = if (isEnabled) Color(0xFFFFFFFF) else Color(0xFF9AA0A6),
                         radius = 4.dp.toPx(),
                         center = dotCenter
                     )
@@ -146,22 +174,69 @@ fun PixelRotaryKnob(
                 )
             }
 
-            // Text Nilai di Tengah Dial
+            // Teks Angka di Tengah Dial
             Text(
-                text = displayFormatter(value),
-                color = if (isEnabled) TextGooglePrimary else TextGoogleSecondary,
-                fontSize = 13.sp,
+                text = displayFormatter(currentValue),
+                color = if (isEnabled) Color(0xFF00F5D4) else TextGoogleSecondary,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
+        // Label Nama Dial
         Text(
             text = label,
-            color = if (isEnabled) TextGoogleSecondary else Color(0xFF5F6368),
+            color = if (isEnabled) TextGooglePrimary else Color(0xFF5F6368),
             fontSize = 11.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.SemiBold
         )
+
+        // Tombol Quick Adjust [-] dan [+] Supaya 100% Presisi
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = {
+                    val updated = (currentValue - stepSize).coerceIn(valueRange.start, valueRange.endInclusive)
+                    currentValue = updated
+                    onValueChange(updated)
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                },
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(PixelSurfaceContainer),
+                enabled = isEnabled
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Remove,
+                    contentDescription = "Kurang",
+                    tint = if (isEnabled) TextGoogleSecondary else Color(0xFF5F6368),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    val updated = (currentValue + stepSize).coerceIn(valueRange.start, valueRange.endInclusive)
+                    currentValue = updated
+                    onValueChange(updated)
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                },
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(PixelSurfaceContainer),
+                enabled = isEnabled
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Tambah",
+                    tint = if (isEnabled) Color(0xFF00F5D4) else Color(0xFF5F6368),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
     }
 }

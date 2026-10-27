@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.explay.audio.audio.visualizer.VisualizerFrame
 import com.explay.audio.data.model.AudioDeviceType
 import com.explay.audio.ui.theme.PixelBorderSubtle
 import com.explay.audio.ui.theme.PixelMint
@@ -53,6 +54,7 @@ fun StatusHeaderCard(
     onToggleEngine: (Boolean) -> Unit,
     deviceType: AudioDeviceType,
     profileName: String,
+    visualizerFrame: VisualizerFrame,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -131,9 +133,10 @@ fun StatusHeaderCard(
                 )
             }
 
-            // Real-Time Audio Visualizer Wave Canvas
-            PixelAudioVisualizer(
-                isActive = isEngineEnabled,
+            // Real-Time Audio Visualizer Teal LED Bar Matrix
+            TealLedSpectrumVisualizer(
+                frame = visualizerFrame,
+                isEnabled = isEngineEnabled,
                 modifier = Modifier.fillMaxWidth()
             )
 

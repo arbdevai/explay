@@ -102,6 +102,7 @@ class MainActivity : ComponentActivity() {
                 val currentDeviceType by audioViewModel.currentDeviceType.collectAsStateWithLifecycle()
                 val forceSpeaker by audioViewModel.forceSpeaker.collectAsStateWithLifecycle()
                 val forceBluetooth by audioViewModel.forceBluetooth.collectAsStateWithLifecycle()
+                val visualizerFrame by audioViewModel.visualizerFrame.collectAsStateWithLifecycle()
                 val halEffects by audioViewModel.halEffects.collectAsStateWithLifecycle()
                 val diagnostics by audioViewModel.deviceDiagnostics.collectAsStateWithLifecycle()
 
@@ -174,6 +175,7 @@ class MainActivity : ComponentActivity() {
                             onToggleEngine = { audioViewModel.toggleEngine(it) },
                             deviceType = currentDeviceType,
                             profileName = currentProfile.name,
+                            visualizerFrame = visualizerFrame,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
 
@@ -238,17 +240,25 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun RequestNotificationPermission() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val permission = Manifest.permission.POST_NOTIFICATIONS
-            val hasPermission = ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-            if (!hasPermission) {
-                val launcher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestPermission(),
-                    onResult = { /* Disetujui atau ditolak */ }
-                )
-                LaunchedEffect(Unit) {
-                    launcher.launch(permission)
-                }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            val launcher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestMultiplePermissions(),
+                onResult = { /* Disetujui atau ditolak */ }
+            )
+            LaunchedEffect(Unit) {
+                launcher.launch(permissionsToRequest.toTypedArray())
             }
         }
     }
