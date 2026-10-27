@@ -159,16 +159,14 @@ class AudioEngineManager(private val context: Context) {
         val bandCount = frequencies.size
 
         val builder = DynamicsProcessing.Config.Builder(
-            DynamicsProcessing.CONFIG_PEAK_DETECTOR_MINIMUM,
-            48000.0f,
-            true, // preferredVariant: true for standard
+            DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
             channelCount,
             true, // preEqInUse
             bandCount,
             true, // mbcInUse
             bandCount,
-            true, // postEqInUse
-            bandCount,
+            false, // postEqInUse
+            0,
             true  // limiterInUse
         )
 
@@ -222,7 +220,7 @@ class AudioEngineManager(private val context: Context) {
             try {
                 for (ch in 0 until 2) {
                     for (i in 0 until minOf(bands.size, 16)) {
-                        dp.setPreEqBand(ch, i, DynamicsProcessing.EqBand(true, EqBand.DEFAULT_16_BANDS[i].frequencyHz, bands[i]))
+                        dp.setPreEqBandByChannelIndex(ch, i, DynamicsProcessing.EqBand(true, EqBand.DEFAULT_16_BANDS[i].frequencyHz, bands[i]))
                     }
                     // Limiter Threshold
                     val limiterThreshold = if (profile.limiterEnabled) profile.limiterThresholdDb else 0.0f
