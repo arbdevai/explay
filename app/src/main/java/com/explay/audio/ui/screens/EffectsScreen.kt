@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.material.icons.filled.SpeakerGroup
 import androidx.compose.material.icons.filled.SpatialAudio
 import androidx.compose.material.icons.filled.SurroundSound
 import androidx.compose.material3.FilterChip
@@ -65,6 +67,7 @@ fun EffectsScreen(
     onLimiterChange: (Boolean, Float?) -> Unit,
     onReverbPresetChange: (ReverbPresetMode) -> Unit,
     onReverbDecayChange: (Int) -> Unit,
+    onSubwooferChange: (Boolean, Float?, Float?, Boolean?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -143,7 +146,181 @@ fun EffectsScreen(
             }
         }
 
-        // 2. Limiter & Anti-Distortion Card
+        // 2. Hardware Subwoofer & Ultra-Low Bass Extension Console
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(if (currentProfile.subwooferEnabled) Color(0xFF0C1D18) else PixelSurfaceDefault)
+                .border(
+                    1.dp,
+                    if (currentProfile.subwooferEnabled) PixelMintNeon.copy(alpha = 0.6f) else PixelBorderSubtle,
+                    RoundedCornerShape(24.dp)
+                )
+                .padding(18.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SpeakerGroup,
+                            contentDescription = null,
+                            tint = if (currentProfile.subwooferEnabled) PixelMintNeon else TextGoogleSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Subwoofer Studio Engine",
+                                color = TextGooglePrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (currentProfile.subwooferEnabled) "Sub-Bass Punch & Rumble Aktif" else "Ekstensi Subwoofer Nonaktif",
+                                color = if (currentProfile.subwooferEnabled) PixelMintNeon else TextGoogleSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = currentProfile.subwooferEnabled,
+                        onCheckedChange = {
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                            onSubwooferChange(it, null, null, null)
+                        },
+                        enabled = isEngineEnabled,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = PixelOledBlack,
+                            checkedTrackColor = PixelMint,
+                            uncheckedThumbColor = TextGoogleSecondary,
+                            uncheckedTrackColor = PixelSurfaceContainer
+                        )
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = currentProfile.subwooferEnabled,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(top = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Subwoofer Gain Slider
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Sub-Bass Gain (<80Hz)",
+                                color = TextGoogleSecondary,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = "+${(currentProfile.subwooferGainDb * 10).roundToInt() / 10f} dB",
+                                color = PixelMintNeon,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Slider(
+                            value = currentProfile.subwooferGainDb,
+                            onValueChange = { onSubwooferChange(true, it, null, null) },
+                            valueRange = 0f..12f,
+                            enabled = isEngineEnabled,
+                            colors = SliderDefaults.colors(
+                                thumbColor = PixelMint,
+                                activeTrackColor = PixelMintNeon,
+                                inactiveTrackColor = PixelSurfaceContainer
+                            )
+                        )
+
+                        // Crossover Frequency Selector Chips
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Frekuensi Crossover Subwoofer:",
+                                color = TextGoogleSecondary,
+                                fontSize = 11.sp
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(40f to "40 Hz", 60f to "60 Hz", 80f to "80 Hz", 120f to "120 Hz").forEach { (freq, label) ->
+                                    val isSelected = currentProfile.subwooferCutoffHz == freq
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                            onSubwooferChange(true, null, freq, null)
+                                        },
+                                        enabled = isEngineEnabled,
+                                        label = { Text(text = label, fontSize = 10.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            containerColor = PixelSurfaceContainer,
+                                            labelColor = TextGoogleSecondary,
+                                            selectedContainerColor = PixelMint,
+                                            selectedLabelColor = PixelOledBlack
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Mono-Summing Switch
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PixelSurfaceContainer)
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Phase Lock Mono Summing",
+                                    color = TextGooglePrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Cegah pembatalan fasa stereo di subwoofer / audio mobil",
+                                    color = Color(0xFF9E9E9E),
+                                    fontSize = 10.sp
+                                )
+                            }
+                            Switch(
+                                checked = currentProfile.subwooferMonoSum,
+                                onCheckedChange = { onSubwooferChange(true, null, null, it) },
+                                enabled = isEngineEnabled,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = PixelOledBlack,
+                                    checkedTrackColor = PixelMint,
+                                    uncheckedThumbColor = TextGoogleSecondary,
+                                    uncheckedTrackColor = PixelSurfaceDefault
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Limiter & Anti-Distortion Card
         Box(
             modifier = Modifier
                 .fillMaxWidth()

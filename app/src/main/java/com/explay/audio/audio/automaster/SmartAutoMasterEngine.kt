@@ -62,10 +62,16 @@ class SmartAutoMasterEngine(private val context: Context) {
                 } else {
                     // Audio hening / idle: kembalikan kompensasi ke normal secara bertahap
                     smoothedAutoGain *= 0.85f
+                    if (abs(smoothedAutoGain) < 0.1f) {
+                        smoothedAutoGain = 0f
+                        audioEngine.resetAutoMasterOffsets()
+                    } else {
+                        audioEngine.applyAutoMasterOffsets(0f, 0f, 0f, smoothedAutoGain)
+                    }
                     _statusFlow.value = AutoMasterStatus(
                         isEnabled = true,
                         detectedQuality = "Siaga / Hening",
-                        autoGainCompensationDb = smoothedAutoGain
+                        autoGainCompensationDb = (smoothedAutoGain * 10).toInt() / 10f
                     )
                 }
             }
@@ -83,13 +89,12 @@ class SmartAutoMasterEngine(private val context: Context) {
         val totalAvg = mags.average().toFloat()
 
         // 2. Deteksi Audio Terlalu Pelan atau Terlalu Keras (Auto-Leveler)
-        // Target level optimal: totalAvg ~ 0.40f - 0.55f
         val targetEnergy = 0.48f
         val energyDelta = targetEnergy - totalAvg
 
-        val targetGain = (energyDelta * 6.0f).coerceIn(-4.0f, 6.0f)
+        val targetGain = (energyDelta * 6.0f).coerceIn(-4.0f, 5.0f)
         // Interpolasi lembut (Smoothing Ramp) agar perubahan volume tidak kaget
-        smoothedAutoGain = smoothedAutoGain * 0.70f + targetGain * 0.30f
+        smoothedAutoGain = smoothedAutoGain * 0.75f + targetGain * 0.25f
 
         // 3. Deteksi Kualitas Audio Berdasarkan Distribusi Spektral
         val isMuffled = highEnergy < 0.12f && (lowEnergy > 0.30f || midEnergy > 0.30f) // Kurang treble (MP3 128kbps)
@@ -103,6 +108,10 @@ class SmartAutoMasterEngine(private val context: Context) {
             else -> "Audio Seimbang (Studio Mastered)"
         }
 
+        val autoTreble = if (isMuffled) 2.2f else 0f
+        val autoBass = if (isThin) 2.0f else 0f
+        val autoDeHarsh = if (isHarsh) 2.0f else 0f
+
         // 4. Update Status Diagnosa Real-Time untuk UI
         _statusFlow.value = AutoMasterStatus(
             isEnabled = true,
@@ -113,14 +122,16 @@ class SmartAutoMasterEngine(private val context: Context) {
             deHarshActive = isHarsh
         )
 
-        // 5. Terapkan Kompensasi Halus pada Loudness Enhancer Engine
-        if (abs(smoothedAutoGain) > 0.3f) {
-            try {
-                val currentP = audioEngine
-                // Sesuaikan gain dinamis tanpa merusak preset manual pengguna
-            } catch (e: Exception) {
-                Log.w(TAG, "Gagal mengaplikasikan Auto-Master: ${e.message}")
-            }
+        // 5. Injeksi Kompensasi DSP Nyata ke DynamicsProcessing & Loudness
+        try {
+            audioEngine.applyAutoMasterOffsets(
+                autoTreble = autoTreble,
+                autoBass = autoBass,
+                autoDeHarsh = autoDeHarsh,
+                autoGain = smoothedAutoGain
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Gagal mengaplikasikan Auto-Master DSP: ${e.message}")
         }
     }
 
@@ -128,6 +139,9 @@ class SmartAutoMasterEngine(private val context: Context) {
         analysisJob?.cancel()
         analysisJob = null
         smoothedAutoGain = 0f
+        try {
+            audioEngine.resetAutoMasterOffsets()
+        } catch (_: Exception) {}
         _statusFlow.value = AutoMasterStatus(isEnabled = false)
     }
 

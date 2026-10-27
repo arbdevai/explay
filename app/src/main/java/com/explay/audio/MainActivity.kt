@@ -218,7 +218,8 @@ class MainActivity : ComponentActivity() {
                                     onLoudnessChange = { audioViewModel.setLoudnessEnhancer(it) },
                                     onLimiterChange = { en, th -> audioViewModel.setLimiter(en, th) },
                                     onReverbPresetChange = { audioViewModel.setReverbPreset(it) },
-                                    onReverbDecayChange = { audioViewModel.setReverbDecay(it) }
+                                    onReverbDecayChange = { audioViewModel.setReverbDecay(it) },
+                                    onSubwooferChange = { en, gain, cutoff, mono -> audioViewModel.setSubwoofer(en, gain, cutoff, mono) }
                                 )
                                 2 -> RoutingScreen(
                                     currentDeviceType = currentDeviceType,

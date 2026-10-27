@@ -45,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.explay.audio.audio.automaster.AutoMasterStatus
@@ -165,40 +166,71 @@ fun EqualizerScreen(
                             .clip(RoundedCornerShape(14.dp))
                             .background(PixelSurfaceContainer)
                             .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        // Baris 1: Kualitas Terdeteksi (Fixed 1-baris dengan overflow ellipsis agar tidak melar)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "Kualitas Terdeteksi:", color = TextGoogleSecondary, fontSize = 11.sp)
+                            Text(
+                                text = "Kualitas Terdeteksi:",
+                                color = TextGoogleSecondary,
+                                fontSize = 11.sp,
+                                modifier = Modifier.weight(0.45f)
+                            )
                             Text(
                                 text = autoMasterStatus.detectedQuality,
                                 color = PixelMintNeon,
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(0.55f),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.End
                             )
                         }
 
+                        // Baris 2: Auto-Loudness Leveler Target Gain
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "Auto-Loudness Leveler:", color = TextGoogleSecondary, fontSize = 11.sp)
+                            Text(
+                                text = "Auto-Loudness Leveler:",
+                                color = TextGoogleSecondary,
+                                fontSize = 11.sp
+                            )
                             val sign = if (autoMasterStatus.autoGainCompensationDb > 0) "+" else ""
                             Text(
-                                text = "$sign${autoMasterStatus.autoGainCompensationDb} dB Target",
+                                text = "$sign${autoMasterStatus.autoGainCompensationDb} dB Dynamic Gain",
                                 color = Color(0xFF00E5FF),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
 
-                        if (autoMasterStatus.trebleExciterActive) {
-                            Text(
-                                text = "• Dynamic Exciter: Membuka detail treble pada audio terkompresi.",
-                                color = Color(0xFFA7F3D0),
-                                fontSize = 10.sp
+                        // Baris 3: Fixed Telemetry Badges (Tinggi Tetap - Anti Jitter / Zero Shift)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            AutoMasterBadge(
+                                label = "TREBLE EXCITER",
+                                isActive = autoMasterStatus.trebleExciterActive,
+                                modifier = Modifier.weight(1f)
+                            )
+                            AutoMasterBadge(
+                                label = "BASS WARMTH",
+                                isActive = autoMasterStatus.bassWarmthActive,
+                                modifier = Modifier.weight(1f)
+                            )
+                            AutoMasterBadge(
+                                label = "DE-HARSH",
+                                isActive = autoMasterStatus.deHarshActive,
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
@@ -450,5 +482,44 @@ fun EqualizerScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+@Composable
+private fun AutoMasterBadge(
+    label: String,
+    isActive: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isActive) Color(0xFF0D2E25) else PixelSurfaceDefault)
+            .border(
+                1.dp,
+                if (isActive) PixelMintNeon else PixelBorderSubtle,
+                RoundedCornerShape(8.dp)
+            )
+            .padding(vertical = 6.dp, horizontal = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .clip(CircleShape)
+                    .background(if (isActive) PixelMintNeon else Color(0xFF5F6368))
+            )
+            Text(
+                text = label,
+                color = if (isActive) PixelMintNeon else Color(0xFF757575),
+                fontSize = 9.sp,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                maxLines = 1
+            )
+        }
     }
 }

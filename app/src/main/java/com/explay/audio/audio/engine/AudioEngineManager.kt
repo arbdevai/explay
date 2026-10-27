@@ -33,6 +33,12 @@ class AudioEngineManager(private val context: Context) {
     private var currentProfile: AudioProfile = AudioProfile.PRESETS.first()
     private var isEngineEnabled: Boolean = true
 
+    // Real-Time Dynamic Auto-Master Offsets
+    private var autoTrebleOffset: Float = 0f
+    private var autoBassOffset: Float = 0f
+    private var autoDeHarshOffset: Float = 0f
+    private var autoGainOffset: Float = 0f
+
     private val _currentDeviceType = MutableStateFlow(AudioDeviceType.SPEAKER)
     val currentDeviceType: StateFlow<AudioDeviceType> = _currentDeviceType.asStateFlow()
 
@@ -205,6 +211,30 @@ class AudioEngineManager(private val context: Context) {
     @Synchronized
     fun applyProfile(profile: AudioProfile) {
         this.currentProfile = profile
+        refreshActiveGains()
+    }
+
+    @Synchronized
+    fun applyAutoMasterOffsets(autoTreble: Float, autoBass: Float, autoDeHarsh: Float, autoGain: Float) {
+        this.autoTrebleOffset = autoTreble
+        this.autoBassOffset = autoBass
+        this.autoDeHarshOffset = autoDeHarsh
+        this.autoGainOffset = autoGain
+        refreshActiveGains()
+    }
+
+    @Synchronized
+    fun resetAutoMasterOffsets() {
+        this.autoTrebleOffset = 0f
+        this.autoBassOffset = 0f
+        this.autoDeHarshOffset = 0f
+        this.autoGainOffset = 0f
+        refreshActiveGains()
+    }
+
+    @Synchronized
+    private fun refreshActiveGains() {
+        val profile = currentProfile
         val bands = profile.bands
 
         // Periksa batasan output perangkat jika forceSpeaker / forceBluetooth tidak aktif
@@ -221,14 +251,49 @@ class AudioEngineManager(private val context: Context) {
 
         setAllEffectsEnabled(isEngineEnabled)
 
-        // 1. Terapkan Band Gains pada DynamicsProcessing Pre-EQ
+        // 1. Terapkan Band Gains pada DynamicsProcessing Pre-EQ dengan Subwoofer & Auto-Master
         dynamicsProcessing?.let { dp ->
             try {
                 for (ch in 0 until 2) {
                     for (i in 0 until minOf(bands.size, 16)) {
-                        dp.setPreEqBandByChannelIndex(ch, i, DynamicsProcessing.EqBand(true, EqBand.DEFAULT_16_BANDS[i].frequencyHz, bands[i]))
+                        val freq = EqBand.DEFAULT_16_BANDS[i].frequencyHz
+                        var effectiveGain = bands[i]
+
+                        // Dukungan Subwoofer Hardware & Sub-Bass Engine (<80Hz / <120Hz)
+                        if (profile.subwooferEnabled && profile.subwooferGainDb > 0f) {
+                            if (freq <= profile.subwooferCutoffHz) {
+                                val subFactor = when {
+                                    freq <= 32f -> 1.0f
+                                    freq <= 64f -> 0.85f
+                                    else -> 0.6f
+                                }
+                                effectiveGain += (profile.subwooferGainDb * subFactor)
+                            }
+                        }
+
+                        // Proteksi Speaker Internal HP (High-Pass Roll-off anti membran jebol/sember)
+                        if (isSpeaker && !profile.subwooferEnabled) {
+                            if (i == 0) effectiveGain = minOf(effectiveGain, -6.0f) // 20Hz roll-off
+                            else if (i == 1) effectiveGain = minOf(effectiveGain, -2.0f) // 32Hz roll-off
+                        }
+
+                        // Injeksi Real-Time DSP Auto-Master
+                        if (i in 13..15 && autoTrebleOffset > 0f) {
+                            val weight = if (i == 15) 1.2f else if (i == 14) 1.0f else 0.7f
+                            effectiveGain += (autoTrebleOffset * weight)
+                        }
+                        if (i in 2..4 && autoBassOffset > 0f) {
+                            val weight = if (i == 3) 1.0f else 0.7f
+                            effectiveGain += (autoBassOffset * weight)
+                        }
+                        if (i in 9..10 && autoDeHarshOffset > 0f) {
+                            effectiveGain -= (autoDeHarshOffset * 1.0f)
+                        }
+
+                        dp.setPreEqBandByChannelIndex(ch, i, DynamicsProcessing.EqBand(true, freq, effectiveGain))
                     }
-                    // Limiter Threshold
+
+                    // Limiter Threshold & Lookahead Anti-Kliping
                     val limiterThreshold = if (profile.limiterEnabled) profile.limiterThresholdDb else 0.0f
                     val limiter = DynamicsProcessing.Limiter(
                         profile.limiterEnabled,
@@ -247,18 +312,20 @@ class AudioEngineManager(private val context: Context) {
             }
         }
 
-        // 2. Bass Boost
+        // 2. Bass Boost dengan Sinergi Subwoofer
         bassBoost?.let { bb ->
             try {
                 if (bb.strengthSupported) {
-                    bb.setStrength(profile.bassBoostStrength.coerceIn(0, 1000).toShort())
+                    val subBoostAddon = if (profile.subwooferEnabled) (profile.subwooferGainDb * 25).toInt() else 0
+                    val totalBassStrength = (profile.bassBoostStrength + subBoostAddon).coerceIn(0, 1000)
+                    bb.setStrength(totalBassStrength.toShort())
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Gagal set BassBoost: ${e.message}")
             }
         }
 
-        // 3. Virtualizer (3D Spatial)
+        // 3. Virtualizer (3D Spatial Surround)
         virtualizer?.let { virt ->
             try {
                 if (virt.strengthSupported) {
@@ -283,10 +350,11 @@ class AudioEngineManager(private val context: Context) {
             }
         }
 
-        // 5. Loudness Enhancer
+        // 5. Loudness Enhancer (dengan Auto-Gain Leveler Aktif)
         loudnessEnhancer?.let { le ->
             try {
-                val mB = (profile.loudnessEnhancerDb * 100).toInt().coerceIn(0, 2000)
+                val totalLoudnessDb = (profile.loudnessEnhancerDb + autoGainOffset).coerceIn(0f, 15f)
+                val mB = (totalLoudnessDb * 100).toInt().coerceIn(0, 2000)
                 le.setTargetGain(mB)
             } catch (e: Exception) {
                 Log.w(TAG, "Gagal set LoudnessEnhancer: ${e.message}")

@@ -17,7 +17,11 @@ data class AudioProfile(
     val reverbPreset: ReverbPresetMode = ReverbPresetMode.NONE,
     val reverbDecayMs: Int = 1000,
     val forceSpeaker: Boolean = true,
-    val forceBluetooth: Boolean = true
+    val forceBluetooth: Boolean = true,
+    val subwooferEnabled: Boolean = false,
+    val subwooferGainDb: Float = 0f,        // 0 s/d 12 dB sub-bass boost
+    val subwooferCutoffHz: Float = 80f,     // 40Hz, 60Hz, 80Hz, 120Hz crossover
+    val subwooferMonoSum: Boolean = true    // Mono summing anti-phase cancellation
 ) {
     companion object {
         val PRESETS: List<AudioProfile> = listOf(
@@ -126,6 +130,55 @@ data class AudioProfile(
                 limiterThresholdDb = -1.0f,
                 reverbPreset = ReverbPresetMode.LARGE_HALL,
                 reverbDecayMs = 2500
+            ),
+            AudioProfile(
+                id = "preset_subwoofer",
+                name = "Subwoofer Earthquake",
+                isSystemPreset = true,
+                bands = listOf(
+                    9.0f, 8.5f, 7.0f, 5.0f, 2.0f, 0.5f, 0f, 0f,
+                    0f, 0.5f, 1.0f, 1.5f, 2.0f, 2.0f, 1.5f, 1.0f
+                ),
+                preGainDb = -3.0f, // Headroom anti-clipping untuk gempa sub-bass
+                bassBoostStrength = 850,
+                virtualizerStrength = 150,
+                loudnessEnhancerDb = 2.0f,
+                limiterEnabled = true,
+                limiterThresholdDb = -1.5f,
+                subwooferEnabled = true,
+                subwooferGainDb = 8.0f,
+                subwooferCutoffHz = 80f,
+                subwooferMonoSum = true
+            ),
+            AudioProfile(
+                id = "preset_harman",
+                name = "Harman Target 2019",
+                isSystemPreset = true,
+                bands = listOf(
+                    5.5f, 5.0f, 4.5f, 3.0f, 1.0f, 0f, 0f, 0.5f,
+                    1.5f, 3.5f, 4.0f, 2.5f, 1.5f, 2.0f, 3.0f, 2.5f
+                ),
+                preGainDb = -1.5f,
+                bassBoostStrength = 200,
+                virtualizerStrength = 100,
+                loudnessEnhancerDb = 0.5f,
+                limiterEnabled = true,
+                limiterThresholdDb = -1.0f
+            ),
+            AudioProfile(
+                id = "preset_sennheiser",
+                name = "Sennheiser Warmth",
+                isSystemPreset = true,
+                bands = listOf(
+                    1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 2.5f, 2.0f, 1.5f,
+                    1.0f, 1.0f, 1.5f, 2.0f, 1.5f, 0.5f, -0.5f, -1.5f
+                ),
+                preGainDb = 0f,
+                bassBoostStrength = 150,
+                virtualizerStrength = 50,
+                loudnessEnhancerDb = 1.0f,
+                limiterEnabled = true,
+                limiterThresholdDb = -1.0f
             )
         )
     }

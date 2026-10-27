@@ -165,6 +165,17 @@ class AudioViewModel(application: Application) : AndroidViewModel(application) {
         updateProfile(updated)
     }
 
+    fun setSubwoofer(enabled: Boolean, gainDb: Float? = null, cutoffHz: Float? = null, monoSum: Boolean? = null) {
+        val active = currentProfile.value
+        val updated = active.copy(
+            subwooferEnabled = enabled,
+            subwooferGainDb = (gainDb ?: active.subwooferGainDb).coerceIn(0f, 12f),
+            subwooferCutoffHz = cutoffHz ?: active.subwooferCutoffHz,
+            subwooferMonoSum = monoSum ?: active.subwooferMonoSum
+        )
+        updateProfile(updated)
+    }
+
     fun setReverbPreset(preset: ReverbPresetMode) {
         val updated = currentProfile.value.copy(reverbPreset = preset)
         updateProfile(updated)
